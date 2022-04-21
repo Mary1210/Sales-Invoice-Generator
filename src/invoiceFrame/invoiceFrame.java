@@ -10,6 +10,8 @@ import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -23,7 +25,6 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
-import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableModel;
 import model.InvoiceHeader;
 import model.InvoiceHeaderTableModel;
@@ -73,7 +74,7 @@ public class invoiceFrame extends javax.swing.JFrame implements ActionListener {
         jLabel4 = new javax.swing.JLabel();
         jLabel5 = new javax.swing.JLabel();
         jScrollPane2 = new javax.swing.JScrollPane();
-        invoiceItems = new javax.swing.JTable();
+        invoiceItemsTable = new javax.swing.JTable();
         saveFile = new javax.swing.JButton();
         saveFile.addActionListener(this);
         cancelChangesBtn = new javax.swing.JButton();
@@ -169,7 +170,7 @@ public class invoiceFrame extends javax.swing.JFrame implements ActionListener {
 
         jLabel5.setText("Invoices Items");
 
-        invoiceItems.setModel(new javax.swing.table.DefaultTableModel(
+        invoiceItemsTable.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
 
             },
@@ -177,7 +178,7 @@ public class invoiceFrame extends javax.swing.JFrame implements ActionListener {
 
             }
         ));
-        jScrollPane2.setViewportView(invoiceItems);
+        jScrollPane2.setViewportView(invoiceItemsTable);
 
         saveFile.setText("Save");
         saveFile.setActionCommand("saveChangesInvoice");
@@ -383,7 +384,7 @@ public class invoiceFrame extends javax.swing.JFrame implements ActionListener {
     private javax.swing.JLabel invNumLbl;
     private javax.swing.JLabel invTotal;
     private javax.swing.JTextField invoiceDateTxt;
-    private javax.swing.JTable invoiceItems;
+    private javax.swing.JTable invoiceItemsTable;
     private javax.swing.JTable invoicesTable;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
@@ -434,7 +435,7 @@ public class invoiceFrame extends javax.swing.JFrame implements ActionListener {
                 DeleteInvoice();
                 break;
             case "saveChangesInvoice":
-                
+                saveChangesInvoice();
             case "cancelChangesInvoice":
                 
             default:
@@ -454,13 +455,13 @@ public class invoiceFrame extends javax.swing.JFrame implements ActionListener {
             String headerLine = null;
             while((headerLine  = br.readLine())!= null){
                 String[] headerParts = headerLine.split(",");
-                    String invNumStr = headerParts[0];
-                    String invDateStr = headerParts[1];
-                    String custName = headerParts[2];
-                    int invNum = Integer.parseInt(invNumStr);
-                    Date invDate = df.parse(invDateStr);
-                    InvoiceHeader inv = new InvoiceHeader(invNum, custName, invDate);
-                    invoicesList.add(inv);
+                String invNumStr = headerParts[0];
+                String invDateStr = headerParts[1];
+                String custName = headerParts[2];
+                int invNum = Integer.parseInt(invNumStr);
+                Date invDate = df.parse(invDateStr);
+                InvoiceHeader inv = new InvoiceHeader(invNum, custName, invDate);
+                invoicesList.add(inv);
             }         
         JOptionPane.showMessageDialog(this, "Please, select lines file!", "Attension", JOptionPane.WARNING_MESSAGE);
         result = openFile.showOpenDialog(this);
@@ -475,7 +476,7 @@ public class invoiceFrame extends javax.swing.JFrame implements ActionListener {
             String itemName = lineParts[1];
             String itemPriceStr = lineParts[2];
             String itemCountStr = lineParts[3];
-                        
+            
             int invNum =Integer.parseInt(invNumStr);
             double itemPrice = Double.parseDouble(itemPriceStr);
             int itemCount = Integer.parseInt(itemCountStr);
@@ -486,32 +487,33 @@ public class invoiceFrame extends javax.swing.JFrame implements ActionListener {
           invoiceHeaderTableModel = new InvoiceHeaderTableModel(invoicesList);
           invoicesTable.setModel(invoiceHeaderTableModel);
           invoicesTable.validate();
-          
-          invoiceLinesTableModel = new InvoiceLinesTableModel(invoiceItem);
-          invoiceItems.setModel(invoiceLinesTableModel);
-          invoiceItems.validate();
-          
-          int index = invoicesTable.getSelectedRow();
-          TableModel model = invoicesTable.getModel();
-          String invNumStr = model.getValueAt(index+1,0).toString();
-          String custName = model.getValueAt(index+1,1).toString();
-          String invDateStr = model.getValueAt(index+1,2).toString();
-          String invoiceTotal = model.getValueAt(index+1,3).toString();
-          invNumLbl.setText(invNumStr);
-          invoiceDateTxt.setText(invDateStr);
-          customerNameTxt.setText(custName);
-          invTotal.setText(invoiceTotal);
-            }               
+        int index = invoicesTable.getSelectedRow();
+        if (index >=0)
+        {
+        TableModel model = invoicesTable.getModel();
+        String invNumStr = model.getValueAt(index+1,0).toString();
+        String custName = model.getValueAt(index+1,1).toString();
+        String invDateStr = model.getValueAt(index+1,2).toString();
+        String invoiceTotal = model.getValueAt(index+1,3).toString();
+        invNumLbl.setText(invNumStr);
+        invoiceDateTxt.setText(invDateStr);
+        customerNameTxt.setText(custName);
+        invTotal.setText(invoiceTotal);
+        InvoiceHeader row = invoiceHeaderTableModel.getInvoicesList().get(index);
+        ArrayList<InvoiceLine> lines = row.getLines();
+        invoiceLinesTableModel = new InvoiceLinesTableModel(lines);
+        invoiceItemsTable.setModel(invoiceLinesTableModel);
+        invoiceLinesTableModel.fireTableDataChanged();
         }
+        }
+        }               
         catch (Exception e){
             e.printStackTrace();
         }     
-    }   
     }
-      private void saveData() {
-        
+    
     }
-      
+    
     private void createNewInvoice() throws ParseException
     {
        JTextField invoiceNum = new JTextField();
@@ -535,17 +537,55 @@ public class invoiceFrame extends javax.swing.JFrame implements ActionListener {
            Date invDate = df.parse(invoiceDate);
         InvoiceHeader inv = new InvoiceHeader(invNumber, custName, invDate);
         invoicesList.add(inv);
+        invoiceHeaderTableModel = new InvoiceHeaderTableModel(invoicesList);
+        invoicesTable.setModel(invoiceHeaderTableModel);
+        invoicesTable.validate();
     }
     
     public void DeleteInvoice()
     {
-        InvoiceHeader inv = new InvoiceHeader();
-        ArrayList<InvoiceLine> arr = inv.getLines();
-    for (int i = 0; i < arr.size(); i++){
-        i = invoicesTable.getSelectedRow();
-        inv.deleteInvLine(i);
-        i--;
+      int invIndex = invoicesTable.getSelectedRow();
+        InvoiceHeader header = invoiceHeaderTableModel.getInvoicesList().get(invIndex);
+        invoiceHeaderTableModel.getInvoicesList().remove(invIndex);
+        invoiceHeaderTableModel.fireTableDataChanged();
+        invoiceLinesTableModel = new InvoiceLinesTableModel(new ArrayList<InvoiceLine>());
+        invoiceItemsTable.setModel(invoiceLinesTableModel);
+        invoiceLinesTableModel.fireTableDataChanged();
+       customerNameTxt.setText("");
+       invoiceDateTxt.setText("");
+       invNumLbl.setText("");
+       invTotal.setText("");
     }
+    
+      private void saveChangesInvoice() {
+       JTextField itemName= new JTextField();
+       JTextField itemPrice = new JTextField();
+       JTextField itemCount = new JTextField();
+       Object[] fields = new Object[]
+       {
+           new JLabel("itemName"),
+           itemName,
+           new JLabel("itemPrice"),
+           itemPrice,
+           new JLabel("itemCount"),
+           itemCount   
+       };
+       JOptionPane.showConfirmDialog(null,fields,
+       "Please enter invoice Details", JOptionPane.OK_CANCEL_OPTION);
+        String ItemName = itemName.getText();
+        String itemprice = itemPrice.getText();
+        String  itemcount  = itemCount.getText();
+        double ItemPrice = Double.parseDouble(itemprice);
+        int ItemCount = Integer.parseInt(itemcount);
+        invoiceLinesTableModel = new InvoiceLinesTableModel(invoiceItem);
+        invoiceItemsTable.setModel(invoiceLinesTableModel);
+        invoiceItemsTable.validate();
+        
+    }
+    
+    private void saveData() {
+        
+ 
     }
       
     private InvoiceHeader findInvoiceByNum(int invNum) {
