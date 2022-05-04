@@ -19,6 +19,11 @@ public class InvoiceLinesTableModel extends AbstractTableModel{
      public InvoiceLinesTableModel(List<InvoiceLine> item) {
        this.item = item;
     }
+     
+     
+      public List<InvoiceLine> getInvoiceLines() {
+        return item;
+    }
 
     @Override
     public int getRowCount() {
